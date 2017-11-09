@@ -1,0 +1,338 @@
+---
+title: "Predicting Happiness Test 2 - Audhoot Chavan"
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+
+<br>
+<br>
+
+
+[Hackerearth](https://www.hackerearth.com/) has hosted a Machine learning challenge for beginners. The [Data](https://drive.google.com/open?id=0B8Nd7IzXQ-H8UERPOG11eGpLU0U) is provided by TripAdvisor and it consists of a sample of hotel reviews provided by their customers. The problem statement is to predict whether the customer was happy with the hotel services or not. In this notebook, I have explained the approach that I have used to solve this problem. The Data consists of 5 variables:
+
++ User_Id : User id 
++ Description : Hotel reviews 
++ Browser_used : The browser which was used eg. Chrome 
++ Device_Used : Eg. Mobile or tablet
++ Is_response: which is the outcome variable: happy or not_happy
+
+<br> 
+
+##Steps taken: 
+
++ ###Feature Engineering
+This is work in progress. At the moment I could only think of one feature,that is the **length of the review**(the number of words used). 
+
++ ###Preprocessing to create a bag of words
+Preprocessing steps involved creating a **corpus** of documents of the descriptions(Hotel reviews). Converting all words to **lowercase**. Removing **punctuation**. Removing **Stop words** and **Stemming**. The next steps involved generating **unigrams, bigrams and trigrams.**
+
++ ###Building the model
+In this method , I'm using **Logistic Regression**. Its becuase it performed better than Decision tree in my previous test. 
+
++ ### Tweaking threshold values
+After building the model, I kept tweaking the threshold values to get the best accuracy. I found the optimal threshold to be 0.44. The score I got for this threshold was 88.53 % which is the maximum I've got so far.
+
+<br>
+
+
+**Issues faced:** I'm having issues with memory becuase my system has only 4 GB RAM. Due to which I was not able to use many features. I successfully executed my model by performing the task in chunks and deleting variables and calling gc() to return memory whenever possible. 
+
+<br>
+<br>
+<br>
+
+##CODE
+
+### Preprocessing and Feature Engineering
+
+
+ 
+
+```{r}
+
+#Set working directory 
+setwd("C:/Users/Audhoot/Downloads/HackerEarth_Testing_Phase2")
+
+#Loading required libraries 
+
+library(dplyr)
+library(tm)
+library(RWeka)
+library(stringi)
+library(SnowballC)
+library(ggplot2)
+
+#Loading training and testing data and binding them to full 
+train <- read.csv('train.csv', stringsAsFactors = FALSE)
+test <- read.csv('test.csv', stringsAsFactors = FALSE)
+full <- bind_rows(train, test)
+
+
+```
+
+
+
+
+```{r}
+#train[1.]
+# User_ID
+#1 id10326
+                                                                                                                                                                          #                                                                    Description
+#1 The room was kind of clean but had a VERY strong smell of dogs. Generally below average but ok for a overnight stay if you're not too fussy. Would consider staying again if the price was right. Breakfast was free and just about better than nothing.
+#  Browser_Used Device_Used Is_Response
+#1         Edge      Mobile   not happy
+
+```
+
+This is the first observation from training data. I'm not displaying head or tail because the reviews are too long and itll take a lot space. 
+
+```{r}
+
+#Feature Engineering: Adding Length of reviews as a feature 
+
+for(x in 1:68336){
+  full$Review_Length[x] <- stri_count(full$Description[x], regex="\\S+")
+}
+
+# Converting Is_response into 1 and 0 
+
+full$Response[full$Is_Response == 'happy'] <- 1
+full$Response[full$Is_Response == 'not happy'] <- 0
+
+full$Is_Response <- NULL
+
+
+```
+
+Review length is the only feature I've thought about so far apart from the bag of words. Its work in progress.
+
+```{r}
+
+#Create Corpus
+
+corpus = VCorpus(VectorSource(full$Description)) 
+
+# Convert to lower-case
+
+corpus = tm_map(corpus, content_transformer(tolower))
+
+# Remove punctuation
+
+corpus = tm_map(corpus, removePunctuation)
+
+#Removing stop words 
+
+
+corpus = tm_map(corpus, removeWords, stopwords("english"))
+
+# Stem document
+
+corpus = tm_map(corpus, stemDocument)
+
+
+```
+
+unigrams, bigrams and trigrams are generated in chunks. This is to avoid system crash due to limited memory. Sparsity Percentage used for Unigrams --> 99, bigrams --> 98 , trigrams --> 98. After creating each n-gram and adding them to the main dataset, I save it and clear the work space, remove the objects created in the process and call gc() to return memory.
+
+```{r}
+#CREATING UNIGRAMS 
+
+UnigramTokenizer <-
+  function(x)
+    unlist(lapply(ngrams(words(x), 1), paste, collapse = " "), use.names = FALSE)
+
+tdm_unigram <- DocumentTermMatrix(corpus, control = list(tokenize = UnigramTokenizer))
+
+
+sparse_unigram = removeSparseTerms(tdm_unigram, 0.99)
+
+reviewdata_unigram = as.data.frame(as.matrix(sparse_unigram))
+
+
+colnames(reviewdata_unigram) = make.names(colnames(reviewdata_unigram))
+
+#Merging unigrams 
+
+full <- bind_cols(full, reviewdata_unigram)
+
+write.csv( full, file = "full1.csv", row.names = FALSE)
+
+
+```
+
+```{r}
+#CREATING BIGRAMS
+
+#RUN FOR CORPUS BEFORE THIS
+
+full <- read.csv('full1.csv', stringsAsFactors = FALSE)
+
+
+BigramTokenizer <-
+  function(x)
+    unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+tdm_bigram <- DocumentTermMatrix(corpus, control = list(tokenize = BigramTokenizer))
+
+
+sparse_bigram = removeSparseTerms(tdm_bigram, 0.98)
+
+reviewdata_bigram = as.data.frame(as.matrix(sparse_bigram))
+
+
+colnames(reviewdata_bigram) = make.names(colnames(reviewdata_bigram))
+
+#Merging bigrams 
+
+full <- bind_cols(full, reviewdata_bigram)
+
+write.csv( full, file = "full2.csv", row.names = FALSE)
+
+```
+
+
+```{r}
+
+#CREATING TRIGRAMS 
+
+#RUN FOR CORPUS BEFORE THIS
+
+full <- read.csv('full2.csv', stringsAsFactors = FALSE)
+
+TrigramTokenizer <-
+  function(x)
+    unlist(lapply(ngrams(words(x), 3), paste, collapse = " "), use.names = FALSE)
+
+tdm_trigram <- DocumentTermMatrix(corpus, control = list(tokenize = TrigramTokenizer))
+
+
+sparse_trigram = removeSparseTerms(tdm_trigram, 0.98)
+
+reviewdata_trigram = as.data.frame(as.matrix(sparse_trigram))
+
+
+colnames(reviewdata_trigram) = make.names(colnames(reviewdata_trigram))
+
+
+#Merging trigrams 
+
+full <- bind_cols(full, reviewdata_trigram)
+
+write.csv( full, file = "full3.csv", row.names = FALSE)
+
+
+#View Data 
+
+str(full)
+```
+
+###  Preparing Data for modelling
+```{r}
+# PREPARING DATA: SAVING NEW TRAINING AND TESTING DATA
+#RUN ALL AT ONCE 
+
+#Set working directory 
+setwd("C:/Users/Audhoot/Downloads/HackerEarth_Testing_Phase2")
+
+
+#Loading data with unigrams, bigrams and trigrams 
+
+full <- read.csv('full3.csv', stringsAsFactors = FALSE)
+
+
+#Preparing Data for modelling 
+
+full$User_ID <- NULL
+full$Description <- NULL
+
+train_new <- full[1:38932,]
+test_new <- full[38933:68336,]
+
+
+
+write.csv( train_new, file = "train_new.csv", row.names = FALSE)
+write.csv( test_new, file = "test_new.csv", row.names = FALSE)
+
+```
+
+Now the data is prepared. I'll start building the model 
+
+### Building Model
+
+```{r}
+#BUILDING MODEL 
+
+#Set working directory 
+setwd("C:/Users/Audhoot/Downloads/HackerEarth_Testing_Phase2")
+
+#Loading training data and converting certain variables into factors.
+
+train <- read.csv('train_new.csv', stringsAsFactors = FALSE)
+train$Browser_Used <- as.factor(train$Browser_Used)
+train$Device_Used <- as.factor(train$Device_Used)
+
+
+#Model 
+model <- glm(Response ~ ., data=train, family = binomial)
+
+
+#Loading testing data and converting certain variables into factors.
+
+test <- read.csv('test_new.csv', stringsAsFactors = FALSE)
+test_for_ids <- read.csv('test.csv', stringsAsFactors = FALSE)
+test$Browser_Used <- as.factor(test$Browser_Used)
+test$Device_Used <- as.factor(test$Device_Used)
+test$Response <- NULL
+
+
+#Prediction 
+prediction <- predict(model, type = 'response', newdata = test)
+
+
+#Saving output with a threshold as 0.44
+result <- data.frame(User_ID = test_for_ids$User_ID, predictions = prediction > 0.44)
+result$Is_Response[result$predictions == TRUE] <- 'happy'
+result$Is_Response[result$predictions == FALSE] <- 'not_happy'
+result$predictions <- NULL
+
+
+#Saving submission file
+write.csv( result, file = "submission.csv", row.names = FALSE)
+
+```
+
+The accuracy is higher with lower threshold values with maximum at 0.44. 
+
+### Tweaking threshold values for maximum accuracy
+
+```{r}
+
+#Plotting threshold values and coressponding accuracy scores 
+
+threshold <- c(0.4, 0.425, 0.435,  0.44, 0.45, 0.5, 0.6, 0.7)
+score <- c( 0.88243, 0.88413,0.88481, 0.88530, 0.88510, 0.88491, 0.88102, 0.86888 )
+
+Threshold_optimal <- data.frame( threshold = threshold , Score = score )
+
+ggplot(data = Threshold_optimal, aes(x = threshold, y = Score, group = 1)) + geom_line( linetype = 'dashed') +geom_point(color = 'blue', size = 3) + scale_x_continuous(breaks = seq(0.35, 0.75, by = 0.025)) + 
+  geom_point(data = Threshold_optimal[which(Threshold_optimal$Score == max(Threshold_optimal) ),] , aes(x = threshold, y = Score), colour="green", size = 5)
+```
+
+
+Maximum score achieved so far --> 88.53 %. Current rank --> 51
+
+
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+<center> ----- END -----  </center>
+
