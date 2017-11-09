@@ -20,15 +20,15 @@ output:
 
 <br> 
 
-##Steps taken: 
+## Steps taken: 
 
-+ ###Feature Engineering
++ ### Feature Engineering
 This is work in progress. At the moment I could only think of one feature,that is the **length of the review**(the number of words used). 
 
-+ ###Preprocessing to create a bag of words
++ ### Preprocessing to create a bag of words
 Preprocessing steps involved creating a **corpus** of documents of the descriptions(Hotel reviews). Converting all words to **lowercase**. Removing **punctuation**. Removing **Stop words** and **Stemming**. The next steps involved generating **unigrams, bigrams and trigrams.**
 
-+ ###Building the model
++ ### Building the model
 In this method , I'm using **Logistic Regression**. Its becuase it performed better than Decision tree in my previous test. 
 
 + ### Tweaking threshold values
